@@ -21,12 +21,12 @@ def get_lua_executable():
     if env_path:
         return env_path
 
-    for candidate in ("lua5.1", "lua51", "lua"):
+    for candidate in ("lua51", "lua5.1", "lua"):
         path = shutil.which(candidate)
         if path:
             return path
 
-    return "lua5.1"
+    return "lua51"
 
 
 def _find_table_literal_end(content, open_brace_index):
@@ -446,7 +446,7 @@ local function create_dummy(name)
         end,
         __newindex = function(_, k, v)
             local val_str = recursive_tostring(v, 0)
-            print("PROP_SET --> " .. name .. "." .. k .. " = " .. val_str)
+            print("PROP_SET --> " .. name .. "." .. k + " = " .. val_str)
         end,
         __call = function(_, ...)
             local args = {...}
@@ -457,7 +457,7 @@ local function create_dummy(name)
             end
 
             local var_name = name:gsub("%.", "_") .. "_" .. math.random(100, 999)
-            print("CALL_RESULT --> local " .. var_name << " = " .. name .. "(" .. arg_str .. ")")
+            print("CALL_RESULT --> local " .. var_name .. " = " .. name .. "(" .. arg_str .. ")")
             if name == "task.wait" or name == "wait" then
                 _WAIT_COUNT = _WAIT_COUNT + 1
                 if _WAIT_COUNT > 10 then
@@ -468,7 +468,7 @@ local function create_dummy(name)
             
             for i, v in ipairs(args) do
                 if real_type(v) == "function" then
-                    print("--- ENTERING CLOSURE FOR " .. name << " ---")
+                    print("--- ENTERING CLOSURE FOR " .. name .. " ---")
                     local success, err = pcall(v, 
                         create_dummy("arg1"), create_dummy("arg2"), 
                         create_dummy("arg3"), create_dummy("arg4"))
