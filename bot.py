@@ -1,3 +1,17 @@
+import os
+import discord
+from discord.ext import commands
+from trace_to_lua import parse_trace
+
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    print("Bot is ready to deobfuscate!")
+
 @bot.command(name="deobf")
 async def deobf(ctx):
     """Usage: Upload a .report.txt file with the command !deobf"""
@@ -26,7 +40,7 @@ async def deobf(ctx):
             
             # Clean up local files
             if os.path.exists(input_path):
-                os.path.exists(input_path) and os.remove(input_path)
+                os.remove(input_path)
             if os.path.exists(output_path):
                 os.remove(output_path)
         else:
@@ -35,3 +49,9 @@ async def deobf(ctx):
         await ctx.send(f"An error occurred during deobfuscation: ```{e}```")
         if os.path.exists(input_path):
             os.remove(input_path)
+
+TOKEN = os.getenv("DISCORD_TOKEN")
+if TOKEN:
+    bot.run(TOKEN)
+else:
+    print("Error: DISCORD_TOKEN environment variable not set.")
