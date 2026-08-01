@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import discord
 from discord.ext import commands
@@ -24,10 +25,9 @@ async def deobf(ctx):
     await attachment.save(input_path)
 
     try:
-        # Run your CLI runner / dumper script via subprocess on the uploaded file
-        # Adjust 'tools/run_dumper.py' if your script is located elsewhere in your project structure
+        # Run deobfuscator.py properly using the system executable
         result = subprocess.run(
-            ["python", "python", "deobfuscator.py", input_path],
+            [sys.executable, "deobfuscator.py", input_path],
             capture_output=True,
             text=True,
             timeout=30
@@ -39,10 +39,8 @@ async def deobf(ctx):
 
         # Fallback check if output wasn't created with that exact name, look for generated files
         if not os.path.exists(output_path):
-            # If the dumper outputs a report instead, look for it
             report_path = base_name + ".report.txt"
             if os.path.exists(report_path):
-                # Try running your trace-to-lua parser on the report if you have it
                 from trace_to_lua import parse_trace
                 parse_trace(report_path)
 
@@ -50,7 +48,6 @@ async def deobf(ctx):
             await ctx.send("Here is your deobfuscated file:", file=discord.File(output_path))
             os.remove(output_path)
         else:
-            # If no .deobf.lua was built, send the command logs back so you can see what happened
             logs = result.stdout or result.stderr or "No output generated."
             await ctx.send(f"Deobfuscation finished, but no output file was found. Logs: ```{logs[:1500]}```")
 
