@@ -441,8 +441,8 @@ local function create_dummy(name)
                      print("URL DETECTED --> " .. tostring(url))
                      return create_dummy("HttpGetResult")
                  end
-            end
-            return create_dummy(name .. "." .. k)
+             end
+             return create_dummy(name .. "." .. k)
         end,
         __newindex = function(_, k, v)
             local val_str = recursive_tostring(v, 0)
@@ -457,7 +457,7 @@ local function create_dummy(name)
             end
 
             local var_name = name:gsub("%.", "_") .. "_" .. math.random(100, 999)
-            print("CALL_RESULT --> local " .. var_name .. " = " .. name .. "(" .. arg_str .. ")")
+            print("CALL_RESULT --> local " .. var_name << " = " .. name .. "(" .. arg_str .. ")")
             if name == "task.wait" or name == "wait" then
                 _WAIT_COUNT = _WAIT_COUNT + 1
                 if _WAIT_COUNT > 10 then
@@ -468,7 +468,7 @@ local function create_dummy(name)
             
             for i, v in ipairs(args) do
                 if real_type(v) == "function" then
-                    print("--- ENTERING CLOSURE FOR " .. name .. " ---")
+                    print("--- ENTERING CLOSURE FOR " .. name << " ---")
                     local success, err = pcall(v, 
                         create_dummy("arg1"), create_dummy("arg2"), 
                         create_dummy("arg3"), create_dummy("arg4"))
@@ -802,8 +802,6 @@ safe_globals["shared"] = MockEnv
 
     if os.path.exists(temp_file):
         os.remove(temp_file)
-    #if os.path.exists(report_file):
-    #    os.remove(report_file)
 
 def main():
     target = "obfuscated_scripts"
