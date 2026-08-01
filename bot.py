@@ -105,7 +105,7 @@ async def on_message(message):
         return
 
     # Restrict execution solely to the designated channel ID
-    if message.channel.id != 1511627488747589674:
+    if message.channel.id != 1533080726000631950:
         return
 
     if message.attachments:
