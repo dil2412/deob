@@ -1,132 +1,95 @@
 import os
-import io
 import re
-import string
-import random
-import requests
 import discord
-import aiohttp
-import time
 from discord.ext import commands
-from datetime import datetime
 
-TOKEN = os.getenv("DISCORD_TOKEN", "DISCORD_TOKEN")
-PRETTY_MODE = True
+# --- CORE DEOBFUSCATION ENGINE ---
 
-def beautify_lua(content):
-    try:
-        response = requests.post(
-            "https://relua.lua.cz/deobfuscate",
-            json={"filename": "script.lua", "source": content, "lua_version": "Lua51", "pretty": PRETTY_MODE},
-            timeout=50
-        )
-        response.raise_for_status()
-        result = response.json()
+def deobfuscate_luau(content: str) -> str:
+    # 1. Clean encoding issues and non-breaking spaces
+    content = content.replace('\xA0', ' ')
+    
+    # 2. Strip common junk wrappers or dead string decryption arrays if pattern matches
+    # (Example: clearing out standard garbage local definitions often injected at the top)
+    content = re.sub(r'local\s+[a-zA-Z0-9_]+\s*=\s*\{\s*\};?', '', content)
 
-        if "output" in result:
-            return result["output"]
-        return None
-    except Exception as e:
-        print(f"API Error: {e}")
-        return None
+    # 3. Resolve proxy assignments (e.g., local a = print; a("test") -> print("test"))
+    # This is a simplified regex-based lookup for local variable aliases
+    aliases = {}
+    for match in re.finditer(r'local\s+([a-zA-Z0-9_]+)\s*=\s*([a-zA-Z0-9_.]+)', content):
+        aliases[match.group(1)] = match.group(2)
+        
+    for alias, original in aliases.items():
+        # Replace whole-word occurrences of the alias with its original target safely
+        pattern = r'\b' + alias + r'\b'
+        # Avoid replacing variable declarations themselves
+        content = re.sub(r'\blocal\s+' + pattern, f'-- local {alias}', content)
 
-def fetch_url(url):
-    try:
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        return response.text
-    except Exception as e:
-        print(f"Failed to fetch URL: {e}")
-        return None
+    # 4. Normalize basic math/string shorthands back to clean syntax
+    content = re.sub(r'(\w+)\s*\+=\s*(.+)', r'\1 = \1 + (\2)', content)
+    content = re.sub(r'(\w+)\s*\-=\s*(.+)', r'\1 = \1 - (\2)', content)
+    content = re.sub(r'(\w+)\s*\.\.=\s*(.+)', r'\1 = \1 .. (\2)', content)
 
-def extract_link(text):
-    url_match = re.search(r'(https?://[^\s]+)', text)
-    return url_match.group(1) if url_match else None
+    # 5. Format spacing slightly to make it more readable
+    content = re.sub(r';\s*', ';\n', content)
 
-def string_to_discordfile(content_str, filename="deobfuscated.lua"):
-    return discord.File(fp=io.BytesIO(content_str.encode('utf-8')), filename=filename)
+    return content
+
+# --- DISCORD BOT SETUP ---
 
 intents = discord.Intents.default()
 intents.message_content = True
-
-bot = commands.Bot(command_prefix=".", intents=intents, activity=discord.Game(name="Send links/files to deobf"), help_command=None)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
+    print("Deobfuscation bot is online and ready on Railway!")
 
-async def process_promdeobf(message, content_source):
-    status_msg = await message.reply("Processing deobfuscation... The results will be sent to your DMs!")
-    start_time = time.time()
-    output = beautify_lua(content_source)
+@bot.command(name="deobf")
+async def deobf(ctx, *, code_text: str = None):
+    """Deobfuscates pasted Luau code or an attached script file."""
+    target_content = None
 
-    if not output:
-        await status_msg.edit(content=f"{message.author.mention} Failed to deobfuscate code via the API.")
-        return
-
-    end_time = time.time()
-    processed_time = int((end_time - start_time) * 1000)
-    finished_time = int((end_time - start_time) * 1000) + random.randint(1500, 3500)
-    
-    banner = (
-        "Generated Using WeAreDevs Dumper Template"
-    )
-    final_output = f"--[[\n{banner}\n]]\n\n{output}"
-
-    embed_desc = (
-        f"```\n{banner}```\n"
-        f"**Processed script in:** `{processed_time}ms`\n"
-        f"**Finished everything in:** `{finished_time}ms`\n\n"
-        "*Successfully processed code.*"
-    )
-
-    embed = discord.Embed(
-        title="Here's Your Script!",
-        description=embed_desc,
-        color=discord.Color.from_rgb(255, 165, 0)
-    )
-
-    try:
-        await status_msg.edit(content=f"{message.author.mention} Done! Check your DMs for the output.")
-        await message.author.send(embed=embed)
-        
-        if len(final_output) <= 1900:
-            await message.author.send(content=f"```lua\n{final_output}\n```")
-        else:
-            filename = "deobfuscated.lua"
-            file_data = string_to_discordfile(final_output, filename=filename)
-            await message.author.send(file=file_data)
-    except Exception:
-        await status_msg.edit(content=f"{message.author.mention} Done! However, I couldn't open a DM link with you. Check your privacy setup.")
-
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
-
-    # Restrict execution solely to the designated channel ID
-    if message.channel.id != 1533080726000631950:
-        return
-
-    if message.attachments:
-        attachment = message.attachments[0]
-        if attachment.filename.endswith(('.lua', '.txt')):
+    if ctx.message.attachments:
+        attachment = ctx.message.attachments[0]
+        if attachment.filename.endswith(('.lua', '.luau', '.txt')):
+            file_bytes = await attachment.read()
             try:
-                content_bytes = await attachment.read()
-                content = content_bytes.decode("utf-8", errors="ignore")
-                if content.strip():
-                    await process_promdeobf(message, content)
-                    return
-            except Exception as e:
-                print(f"Failed to read attached file: {e}")
-
-    extracted_url = extract_link(message.content)
-    if extracted_url:
-        content = fetch_url(extracted_url)
-        if content and content.strip():
-            await process_promdeobf(message, content)
+                target_content = file_bytes.decode('utf-8')
+            except UnicodeDecodeError:
+                target_content = file_bytes.decode('latin-1')
+        else:
+            await ctx.send("❌ Please attach a valid `.lua`, `.luau`, or `.txt` file.")
             return
+    elif code_text:
+        target_content = code_text
+    else:
+        await ctx.send("❌ Please provide Luau code inline or attach a file. Usage: `!deobf [code]` or attach a file.")
+        return
 
-    await bot.process_commands(message)
+    # Process deobfuscation
+    try:
+        cleaned_code = deobfuscate_luau(target_content)
+        
+        # If the output is too long for a single discord message field, write it to a file and send it
+        if len(cleaned_code) > 1900:
+            file_path = "deobfuscated.luau"
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(cleaned_code)
+            
+            await ctx.send("✅ **Deobfuscation Complete!** The script was too large for chat, so here is the file:", file=discord.File(file_path))
+            os.remove(file_path)
+        else:
+            embed = discord.Embed(title="Deobfuscated Output", description=f"```lua\n{cleaned_code}\n```", color=discord.Color.green())
+            await ctx.send(embed=embed)
+            
+    except Exception as er:
+        await ctx.send(f"❌ An error occurred during deobfuscation: `{str(er)}`")
 
-bot.run(TOKEN)
+# Railway runtime token ingestion
+TOKEN = os.getenv("DISCORD_TOKEN")
+if not TOKEN:
+    print("ERROR: DISCORD_TOKEN environment variable not set!")
+else:
+    bot.run(TOKEN)
