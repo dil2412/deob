@@ -295,8 +295,8 @@ def parse_trace(report_file):
 
         loop_end_idx = pattern_len * repeat_count
         remaining_ops = [op for i, op in enumerate(operations)
-                        if not (op["type"] == "call" and op["depth"] == 0 and
-                               operations.index(op) < loop_end_idx * (len(operations) / len(top_level_calls) if top_level_calls else 1))]
+                         if not (op["type"] == "call" and op["depth"] == 0 and
+                                 operations.index(op) < loop_end_idx * (len(operations) / len(top_level_calls) if top_level_calls else 1))]
     else:
         closure_info_stack = []
         i = 0
@@ -310,8 +310,8 @@ def parse_trace(report_file):
                 if clean_line:
                     skip = False
                     CONSTRUCTOR_PREFIXES = ("UDim2.new", "Color3.fromRGB", "Color3.new",
-                                           "Vector3.new", "Vector2.new", "CFrame.new",
-                                           "BrickColor.new", "NumberRange.new")
+                                            "Vector3.new", "Vector2.new", "CFrame.new",
+                                            "BrickColor.new", "NumberRange.new")
                     if any(clean_line.startswith(p) for p in CONSTRUCTOR_PREFIXES):
                         if i + 1 < len(operations) and operations[i+1]["type"] == "prop_set":
                             next_raw = operations[i+1]["raw"]
@@ -380,7 +380,12 @@ def parse_trace(report_file):
     final_output = "\n".join(output_lines)
     final_output = postprocess_output(final_output)
 
-    out_file = report_file.replace(".report.txt", ".deobf.lua")
+    # --- UPDATED SAVING LOGIC HERE ---
+    if report_file.endswith(".txt"):
+        out_file = report_file[:-4] + ".deobf.lua"
+    else:
+        out_file = report_file + ".deobf.lua"
+
     with open(out_file, 'w', encoding='utf-8') as f:
         f.write(final_output)
 
@@ -544,10 +549,12 @@ def postprocess_output(output):
     return "\n".join(cleaned)
 
 
+# --- UPDATED EXECUTION LOGIC HERE ---
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         parse_trace(sys.argv[1])
     else:
-        for file in os.listdir("obfuscated_scripts"):
-            if file.endswith(".report.txt"):
-                parse_trace(os.path.join("obfuscated_scripts", file))
+        if os.path.exists("obfuscated_scripts"):
+            for file in os.listdir("obfuscated_scripts"):
+                if file.endswith(".txt"):
+                    parse_trace(os.path.join("obfuscated_scripts", file))
