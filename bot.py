@@ -27,7 +27,7 @@ async def deobf(ctx):
         # Run your CLI runner / dumper script via subprocess on the uploaded file
         # Adjust 'tools/run_dumper.py' if your script is located elsewhere in your project structure
         result = subprocess.run(
-            ["python", "tools/run_dumper.py", input_path],
+            ["python", "python", "deobfuscator.py", input_path],
             capture_output=True,
             text=True,
             timeout=30
