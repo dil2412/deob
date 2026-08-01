@@ -1,2 +1,2 @@
 [phases.setup]
-nixPkgs = ["...", "lua51"]
+pkgs = ["python3", "lua"]
