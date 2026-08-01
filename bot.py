@@ -25,7 +25,7 @@ async def deobf(ctx):
     await attachment.save(input_path)
 
     try:
-        # Run deobfuscator.py properly using the system executable
+        print(f"Processing {input_path}...")
         result = subprocess.run(
             [sys.executable, "deobfuscator.py", input_path],
             capture_output=True,
@@ -33,11 +33,9 @@ async def deobf(ctx):
             timeout=30
         )
         
-        # Determine output path (.deobf.lua)
         base_name = os.path.splitext(input_path)[0]
         output_path = base_name + ".deobf.lua"
 
-        # Fallback check if output wasn't created with that exact name, look for generated files
         if not os.path.exists(output_path):
             report_path = base_name + ".report.txt"
             if os.path.exists(report_path):
@@ -48,7 +46,7 @@ async def deobf(ctx):
             await ctx.send("Here is your deobfuscated file:", file=discord.File(output_path))
             os.remove(output_path)
         else:
-            logs = result.stdout or result.stderr or "No output generated."
+            logs = f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
             await ctx.send(f"Deobfuscation finished, but no output file was found. Logs: ```{logs[:1500]}```")
 
     except Exception as e:
